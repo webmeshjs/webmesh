@@ -1,0 +1,40 @@
+{
+  "private": true,
+  "name": "webmesh",
+  "scripts": {
+    "start": "yarn recipe-cli",
+    "changeset": "changeset",
+    "fix": "manypkg fix",
+    "postinstall": "manypkg check",
+    "release": "changeset publish",
+    "test": "jest",
+    "recipe-cli": "node packages/cli"
+  },
+  "dependencies": {
+    "@changesets/cli": "2.6.1",
+    "@manypkg/cli": "0.11.1",
+    "husky": "4.2.3",
+    "jest": "25.1.0",
+    "lint-staged": "10.0.8",
+    "prettier": "1.19.1"
+  },
+  "workspaces": [
+    "packages/*"
+  ],
+  "husky": {
+    "hooks": {
+      "pre-commit": "lint-staged"
+    }
+  },
+  "lint-staged": {
+    "*.{js,md,mdx,json}": [
+      "prettier --write"
+    ]
+  },
+  "jest": {
+    "testPathIgnorePatterns": [
+      "/.cache/"
+    ],
+    "testEnvironment": "node"
+  }
+}

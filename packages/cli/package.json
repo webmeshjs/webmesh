@@ -1,0 +1,23 @@
+{
+  "name": "@webmesh/cli",
+  "version": "0.0.1",
+  "license": "MIT",
+  "private": true,
+  "main": "index.js",
+  "scripts": {
+    "start": "node ."
+  },
+  "bin": {
+    "webmesh": "index.js"
+  },
+  "dependencies": {
+    "@mdx-js/mdx": "1.5.7",
+    "@mdx-js/react": "1.5.7",
+    "@mdx-js/runtime": "^1.5.7",
+    "execa": "^4.0.0",
+    "import-jsx": "^3.1.0",
+    "ink": "^2.3.0",
+    "ink-spinner": "^3.0.1",
+    "react": "16.13.1"
+  }
+}
