@@ -1,0 +1,22 @@
+# Add Theme UI
+
+This recipe helps you start developing with the Theme UI styling library.
+
+<Config name="gasbyjs/add-theme-ui" />
+
+---
+
+Installing nececssary packages
+
+<InstallPackages packages={['gatsby-plugin-theme-ui', 'theme-ui']} />
+
+---
+
+Adding the plugin `gatsby-plugin-theme-ui` to your `gatsby-config.js` and
+shadowing the Theme UI config file into your source.
+
+<InstallGatsbyPlugin name="gatsby-plugin-theme-ui" />
+<ShadowFile
+  theme="gatsby-plugin-theme-ui"
+  path="src/gatsby-plugin-theme-ui/index.js"
+/>
