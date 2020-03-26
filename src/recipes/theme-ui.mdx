@@ -16,7 +16,17 @@ Adding the plugin `gatsby-plugin-theme-ui` to your `gatsby-config.js` and
 shadowing the Theme UI config file into your source.
 
 <InstallGatsbyPlugin name="gatsby-plugin-theme-ui" />
+
+---
+
 <ShadowFile
   theme="gatsby-plugin-theme-ui"
   path="src/gatsby-plugin-theme-ui/index.js"
+/>
+
+---
+
+<WriteFile
+  content="export default {}"
+  path="src/gatsby-plugin-theme-ui/components.js"
 />

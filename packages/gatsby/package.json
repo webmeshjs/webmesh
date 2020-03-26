@@ -1,0 +1,11 @@
+{
+  "name": "@webmesh/gatsby",
+  "version": "0.0.1",
+  "license": "MIT",
+  "private": true,
+  "dependencies": {
+    "@babel/core": "^7.9.0",
+    "@babel/helper-plugin-utils": "^7.8.3",
+    "gatsby-admin-actions": "^0.0.1"
+  }
+}

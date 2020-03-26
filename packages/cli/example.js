@@ -12,6 +12,9 @@ const unified = require('unified')
 const remarkMdx = require('remark-mdx')
 const remarkParse = require('remark-parse')
 const remarkStringify = require('remark-stringify')
+const mkdirp = require('mkdirp')
+
+const { updatePluginConfig } = require('@webmesh/gatsby')
 
 const recipePath = path.join(process.cwd(), 'src', 'recipes', 'theme-ui.mdx')
 const recipeSrc = fs.readFileSync(recipePath, 'utf8')
@@ -34,18 +37,22 @@ const components = {
   ),
   inlineCode: ({ children }) => <Text>{children}</Text>,
   Config: () => null,
-  InstallGatsbyPlugin: () => {
-    // Babel plugin that injects the string
-    // Define shape of options for wizard like flow
-    // import { Wizard } from '@webmesh/components'
-    // exports.pluginOptionSchema
-    // Wizard will pull from plugin options in node_modules
-    // Add ability to update the existing config
-    // Babel townnnnnn
-    // <Wizard steps={[{
-    //
-    // }]} />
-    return <Text>Plugin!</Text>
+  InstallGatsbyPlugin: ({ name }) => {
+    const { next } = useProvisioningContext()
+
+    useEffect(() => {
+      updatePluginConfig(name)
+      next()
+    })
+
+    return (
+      <Box>
+        <Text> </Text>
+        <Spinner />
+        <Text> </Text>
+        <Text>Adding {name} to gatsby-config.js</Text>
+      </Box>
+    )
   },
   InstallPackages: ({ packages }) => {
     const { next } = useProvisioningContext()
@@ -74,6 +81,19 @@ const components = {
   },
   ShadowFile: () => {
     return <Text>Shadow!!!!</Text>
+  },
+  WriteFile: ({ content, path: filePath }) => {
+    const { next } = useProvisioningContext()
+
+    useEffect(() => {
+      const fullPath = path.join(process.cwd(), filePath)
+      const { dir } = path.parse(fullPath)
+      mkdirp.sync(dir)
+      fs.writeFileSync(fullPath, content)
+      next()
+    })
+
+    return <Text>Writing {filePath}</Text>
   },
   MDXDefaultShortcode: ({ children }) => <Text>{children}</Text>
 }
