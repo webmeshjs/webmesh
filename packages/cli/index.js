@@ -1,1 +1,1 @@
-require('import-jsx')('./example')
+require('import-jsx')('./cli')

@@ -79,8 +79,26 @@ const components = {
       </Box>
     )
   },
-  ShadowFile: () => {
-    return <Text>Shadow!!!!</Text>
+  ShadowFile: ({ theme, path: filePath }) => {
+    const { next } = useProvisioningContext()
+
+    useEffect(() => {
+      const relativePathInTheme = filePath.replace(theme + '/', '')
+      const fullFilePathToShadow = path.join(
+        process.cwd(),
+        'node_modules',
+        theme,
+        relativePathInTheme
+      )
+      const fullPath = path.join(process.cwd(), filePath)
+      const { dir } = path.parse(fullPath)
+      mkdirp.sync(dir)
+      const contents = fs.readFileSync(fullFilePathToShadow, 'utf8')
+      fs.writeFileSync(fullPath, contents)
+      next()
+    })
+
+    return <Text>Shadowing {filePath}</Text>
   },
   WriteFile: ({ content, path: filePath }) => {
     const { next } = useProvisioningContext()
