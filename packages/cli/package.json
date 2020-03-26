@@ -14,10 +14,12 @@
     "@mdx-js/mdx": "1.5.7",
     "@mdx-js/react": "1.5.7",
     "@mdx-js/runtime": "^1.5.7",
+    "@webmesh/gatsby": "0.0.1",
     "execa": "^4.0.0",
     "import-jsx": "^3.1.0",
     "ink": "^2.3.0",
     "ink-spinner": "^3.0.1",
+    "mkdirp": "^1.0.3",
     "react": "16.13.1"
   }
 }
