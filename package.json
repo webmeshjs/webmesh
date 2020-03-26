@@ -6,7 +6,6 @@
     "changeset": "changeset",
     "cli": "node packages/cli",
     "fix": "manypkg fix",
-    "postinstall": "manypkg check",
     "release": "changeset publish",
     "test": "manypkg check && jest"
   },
