@@ -2,7 +2,7 @@ const fs = require('fs')
 const path = require('path')
 
 const React = require('react')
-const { useState, useContext, useEffect } = require('react')
+const { useState, useContext, useEffect, useMemo } = require('react')
 const { render, Box, Text, Static, useInput, useApp } = require('ink')
 const Spinner = require('ink-spinner').default
 const execa = require('execa')
@@ -13,6 +13,7 @@ const remarkMdx = require('remark-mdx')
 const remarkParse = require('remark-parse')
 const remarkStringify = require('remark-stringify')
 const mkdirp = require('mkdirp')
+const humanizeList = require('humanize-list')
 
 const { updatePluginConfig } = require('@webmesh/gatsby')
 
@@ -42,7 +43,7 @@ const components = {
 
     useEffect(() => {
       updatePluginConfig(name)
-      next()
+      next(`Configured ${name}`)
     })
 
     return (
@@ -66,7 +67,7 @@ const components = {
           setOut([...out, line.toString('utf8')])
         })
         .on('end', () => {
-          next()
+          next(`Installed ${humanizeList(packages)} successfully`)
         })
     }, [])
 
@@ -95,7 +96,7 @@ const components = {
       mkdirp.sync(dir)
       const contents = fs.readFileSync(fullFilePathToShadow, 'utf8')
       fs.writeFileSync(fullPath, contents)
-      next()
+      next(`Successfully shadowed ${filePath} in ${theme}`)
     })
 
     return <Text>Shadowing {filePath}</Text>
@@ -108,7 +109,7 @@ const components = {
       const { dir } = path.parse(fullPath)
       mkdirp.sync(dir)
       fs.writeFileSync(fullPath, content)
-      next()
+      next(`Wrote ${filePath}`)
     })
 
     return <Text>Writing {filePath}</Text>
@@ -150,44 +151,48 @@ const stepsAsMDX = steps.map(nodes => {
 const ProvisioningContext = React.createContext({})
 const useProvisioningContext = () => useContext(ProvisioningContext)
 
-const Wrapper = ({ steps }) => {
-  const [step, setStep] = useState(0)
+const Wrapper = ({ steps: stepComponents }) => {
+  const [steps, setSteps] = useState({
+    step: 0,
+    summaries: []
+  })
   const { exit } = useApp()
   useInput((_, key) => {
-    if (key.return && !steps[step]) {
+    if (key.return && !stepComponents[steps.step + 1]) {
       exit()
     } else if (key.return) {
       next()
     }
   })
 
-  const next = () => setStep(step + 1)
-  const previous = () => setStep(step - 1)
+  const next = stepSummary => {
+    const newSteps = {
+      ...steps,
+      step: steps.step + 1
+    }
 
-  const currentStep = steps[step]
+    if (stepSummary) {
+      newSteps.summaries = [...steps.summaries, stepSummary]
+    }
+
+    setSteps(newSteps)
+  }
+
+  const currentStep = useMemo(() => stepComponents[steps.step], [steps])
 
   return (
     <ProvisioningContext.Provider
       value={{
-        step,
-        next,
-        previous
+        step: steps.step,
+        next
       }}
     >
-      <Static>
-        {steps
-          .filter((_, i) => step > i)
-          .map((_, i) => {
-            return <Text key={i}>Step {i + 1} completed!</Text>
-          })}
-      </Static>
-      {currentStep ? (
-        <Div>
-          <MDX>{currentStep}</MDX>
-        </Div>
-      ) : (
-        <Text>Click enter to close!</Text>
-      )}
+      {steps.summaries.map((stepSummary, i) => {
+        return <Text key={i}>✅ {stepSummary}</Text>
+      })}
+      <Div>
+        <MDX>{currentStep}</MDX>
+      </Div>
     </ProvisioningContext.Provider>
   )
 }
