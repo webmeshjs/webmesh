@@ -12,10 +12,12 @@
   "dependencies": {
     "@changesets/cli": "2.6.1",
     "@manypkg/cli": "0.11.1",
+    "gatsby-plugin-theme-ui": "^0.3.0",
     "husky": "4.2.3",
     "jest": "25.1.0",
     "lint-staged": "10.0.8",
-    "prettier": "1.19.1"
+    "prettier": "1.19.1",
+    "theme-ui": "^0.3.1"
   },
   "workspaces": [
     "packages/*"

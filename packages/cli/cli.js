@@ -14,13 +14,46 @@ const remarkParse = require('remark-parse')
 const remarkStringify = require('remark-stringify')
 const mkdirp = require('mkdirp')
 const humanizeList = require('humanize-list')
+const Queue = require('better-queue')
 
 const { updatePluginConfig } = require('@webmesh/gatsby')
 
 const recipePath = path.join(process.cwd(), 'src', 'recipes', 'theme-ui.mdx')
 const recipeSrc = fs.readFileSync(recipePath, 'utf8')
 
-const Div = props => <Box width={500} {...props} />
+const logs = []
+let queue = new Queue(
+  (action, cb) => {
+    if (action.id === 'npm-package') {
+      const cmd = execa('yarn', ['add', '-W', ...action.name.split(' ')])
+      cmd.stderr.on('data', line => {
+        // logs.push(line.toString('utf8'))
+      })
+      cmd.stdout
+        .on('data', line => {
+          // logs.push(line.toString('utf8'))
+        })
+        .on('end', () => {
+          // logs.push('finished install friyay')
+          cb()
+        })
+    }
+  },
+  {
+    merge: (oldAction, newAction, cb) => {
+      if (oldAction.id === 'npm-package') {
+        oldAction.name += ' ' + newAction.name
+        return cb(null, oldAction)
+      }
+
+      cb(null, newAction)
+    }
+  }
+)
+
+const Div = props => (
+  <Box width={80} textWrap="wrap" flexDirection="column" {...props} />
+)
 
 const components = {
   h1: ({ children }) => (
@@ -37,8 +70,20 @@ const components = {
     </Div>
   ),
   inlineCode: ({ children }) => <Text>{children}</Text>,
-  Config: () => null,
-  InstallGatsbyPlugin: ({ name }) => {
+  Config: () => {
+    const { next, lastKey } = useProvisioningContext()
+
+    if (lastKey.return) {
+      next(`Applying changes`)
+    }
+
+    return (
+      <Div>
+        <Text>Press enter to continue!</Text>
+      </Div>
+    )
+  },
+  GatsbyPlugin: ({ name }) => {
     const { next } = useProvisioningContext()
 
     useEffect(() => {
@@ -55,28 +100,17 @@ const components = {
       </Box>
     )
   },
-  InstallPackages: ({ packages }) => {
-    const { next } = useProvisioningContext()
-    const [out, setOut] = useState('')
+  NPMPackage: ({ name }) => {
+    const { queue } = useProvisioningContext()
 
-    // const { stdout } = createAction({ type: 'installPackages', name: [], next })
-
-    useEffect(() => {
-      execa('yarn', ['add', '-W', ...packages])
-        .stdout.on('data', line => {
-          setOut([...out, line.toString('utf8')])
-        })
-        .on('end', () => {
-          next(`Installed ${humanizeList(packages)} successfully`)
-        })
-    }, [])
+    queue.push({ id: 'npm-package', name })
 
     return (
       <Box>
         <Text> </Text>
         <Spinner />
         <Text> </Text>
-        <Text>{out}</Text>
+        <Text>{name}</Text>
       </Box>
     )
   },
@@ -101,7 +135,7 @@ const components = {
 
     return <Text>Shadowing {filePath}</Text>
   },
-  WriteFile: ({ content, path: filePath }) => {
+  File: ({ content, path: filePath }) => {
     const { next } = useProvisioningContext()
 
     useEffect(() => {
@@ -154,20 +188,49 @@ const useProvisioningContext = () => useContext(ProvisioningContext)
 const Wrapper = ({ steps: stepComponents }) => {
   const [steps, setSteps] = useState({
     step: 0,
-    summaries: []
+    summaries: [],
+    lastKey: {},
+    actions: []
   })
   const { exit } = useApp()
   useInput((_, key) => {
     if (key.return && !stepComponents[steps.step + 1]) {
       exit()
+    } else if (steps.step === stepComponents.length) {
+      exit()
     } else if (key.return) {
-      next()
+      setSteps({
+        ...steps,
+        lastKey: key
+      })
     }
   })
+
+  useEffect(() => {
+    logs.push('REMOUNTED')
+  }, [])
+
+  useEffect(() => {
+    if (queue) {
+      queue.resume()
+    }
+  }, [steps])
+
+  // TODO: Use queue finished tasks as the array for summaries
+  //       Convert other components to use actions
+  //       Make actions standalone, tested functions
+  //       Providers architecture to pass in actions with types and their executors
+
+  useEffect(() => {
+    queue.on('drain', () => {
+      next(`did stuff`)
+    })
+  }, [steps])
 
   const next = stepSummary => {
     const newSteps = {
       ...steps,
+      lastKey: {},
       step: steps.step + 1
     }
 
@@ -178,15 +241,21 @@ const Wrapper = ({ steps: stepComponents }) => {
     setSteps(newSteps)
   }
 
+  if (queue) {
+    queue.pause()
+  }
+
   const currentStep = useMemo(() => stepComponents[steps.step], [steps])
 
   return (
     <ProvisioningContext.Provider
       value={{
-        step: steps.step,
+        ...steps,
+        queue,
         next
       }}
     >
+      <Static>{null && logs.map((l, i) => <Text key={i}>{l}</Text>)}</Static>
       {steps.summaries.map((stepSummary, i) => {
         return <Text key={i}>✅ {stepSummary}</Text>
       })}
