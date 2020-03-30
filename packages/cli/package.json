@@ -15,6 +15,7 @@
     "@mdx-js/react": "1.5.7",
     "@mdx-js/runtime": "^1.5.7",
     "@webmesh/gatsby": "0.0.1",
+    "better-queue": "^3.8.10",
     "execa": "^4.0.0",
     "humanize-list": "^1.0.1",
     "import-jsx": "^3.1.0",
