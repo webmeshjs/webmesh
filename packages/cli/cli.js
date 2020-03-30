@@ -2,153 +2,56 @@ const fs = require('fs')
 const path = require('path')
 
 const React = require('react')
-const { useState, useContext, useEffect, useMemo } = require('react')
-const { render, Box, Text, Static, useInput, useApp } = require('ink')
+const { useState, useContext, useEffect } = require('react')
+const { render, Box, Text, useInput, useApp } = require('ink')
 const Spinner = require('ink-spinner').default
-const execa = require('execa')
-const MDX = require('@mdx-js/runtime')
-const { MDXProvider } = require('@mdx-js/react')
 const unified = require('unified')
 const remarkMdx = require('remark-mdx')
 const remarkParse = require('remark-parse')
 const remarkStringify = require('remark-stringify')
-const mkdirp = require('mkdirp')
+const jsxToJson = require('simplified-jsx-to-json')
+const visit = require('unist-util-visit')
 const humanizeList = require('humanize-list')
-const Queue = require('better-queue')
+const {
+  createClient,
+  useMutation,
+  useSubscription,
+  Provider,
+  defaultExchanges,
+  subscriptionExchange
+} = require('urql')
+const { SubscriptionClient } = require('subscriptions-transport-ws')
+const fetch = require('node-fetch')
+const ws = require('ws')
 
-const { updatePluginConfig } = require('@webmesh/gatsby')
-
-const recipePath = path.join(process.cwd(), 'src', 'recipes', 'theme-ui.mdx')
+const recipePath = path.join(process.cwd(), 'src', 'recipes', 'jest.mdx')
 const recipeSrc = fs.readFileSync(recipePath, 'utf8')
 
-const logs = []
-let queue = new Queue(
-  (action, cb) => {
-    if (action.id === 'npm-package') {
-      const cmd = execa('yarn', ['add', '-W', ...action.name.split(' ')])
-      cmd.stderr.on('data', line => {
-        // logs.push(line.toString('utf8'))
-      })
-      cmd.stdout
-        .on('data', line => {
-          // logs.push(line.toString('utf8'))
-        })
-        .on('end', () => {
-          // logs.push('finished install friyay')
-          cb()
-        })
-    }
-  },
+const GRAPHQL_ENDPOINT = 'http://localhost:4000/graphql'
+
+const subscriptionClient = new SubscriptionClient(
+  'ws://localhost:4000/graphql',
   {
-    merge: (oldAction, newAction, cb) => {
-      if (oldAction.id === 'npm-package') {
-        oldAction.name += ' ' + newAction.name
-        return cb(null, oldAction)
+    reconnect: true
+  },
+  ws
+)
+
+const client = createClient({
+  fetch,
+  url: GRAPHQL_ENDPOINT,
+  exchanges: [
+    ...defaultExchanges,
+    subscriptionExchange({
+      forwardSubscription(operation) {
+        return subscriptionClient.request(operation)
       }
-
-      cb(null, newAction)
-    }
-  }
-)
-
-const Div = props => (
-  <Box width={80} textWrap="wrap" flexDirection="column" {...props} />
-)
-
-const components = {
-  h1: ({ children }) => (
-    <Div>
-      <Text underline bold>
-        {children}
-      </Text>
-    </Div>
-  ),
-  wrapper: ({ children }) => <Div>{children}</Div>,
-  p: ({ children }) => (
-    <Div>
-      <Text>{children}</Text>
-    </Div>
-  ),
-  inlineCode: ({ children }) => <Text>{children}</Text>,
-  Config: () => {
-    const { next, lastKey } = useProvisioningContext()
-
-    if (lastKey.return) {
-      next(`Applying changes`)
-    }
-
-    return (
-      <Div>
-        <Text>Press enter to continue!</Text>
-      </Div>
-    )
-  },
-  GatsbyPlugin: ({ name }) => {
-    const { next } = useProvisioningContext()
-
-    useEffect(() => {
-      updatePluginConfig(name)
-      next(`Configured ${name}`)
     })
+  ]
+})
 
-    return (
-      <Box>
-        <Text> </Text>
-        <Spinner />
-        <Text> </Text>
-        <Text>Adding {name} to gatsby-config.js</Text>
-      </Box>
-    )
-  },
-  NPMPackage: ({ name }) => {
-    const { queue } = useProvisioningContext()
-
-    queue.push({ id: 'npm-package', name })
-
-    return (
-      <Box>
-        <Text> </Text>
-        <Spinner />
-        <Text> </Text>
-        <Text>{name}</Text>
-      </Box>
-    )
-  },
-  ShadowFile: ({ theme, path: filePath }) => {
-    const { next } = useProvisioningContext()
-
-    useEffect(() => {
-      const relativePathInTheme = filePath.replace(theme + '/', '')
-      const fullFilePathToShadow = path.join(
-        process.cwd(),
-        'node_modules',
-        theme,
-        relativePathInTheme
-      )
-      const fullPath = path.join(process.cwd(), filePath)
-      const { dir } = path.parse(fullPath)
-      mkdirp.sync(dir)
-      const contents = fs.readFileSync(fullFilePathToShadow, 'utf8')
-      fs.writeFileSync(fullPath, contents)
-      next(`Successfully shadowed ${filePath} in ${theme}`)
-    })
-
-    return <Text>Shadowing {filePath}</Text>
-  },
-  File: ({ content, path: filePath }) => {
-    const { next } = useProvisioningContext()
-
-    useEffect(() => {
-      const fullPath = path.join(process.cwd(), filePath)
-      const { dir } = path.parse(fullPath)
-      mkdirp.sync(dir)
-      fs.writeFileSync(fullPath, content)
-      next(`Wrote ${filePath}`)
-    })
-
-    return <Text>Writing {filePath}</Text>
-  },
-  MDXDefaultShortcode: ({ children }) => <Text>{children}</Text>
+const Div = props => {
+  return <Box width={80} textWrap="wrap" flexDirection="column" {...props} />
 }
 
 const u = unified()
@@ -182,96 +85,323 @@ const stepsAsMDX = steps.map(nodes => {
   return u.stringify(stepAst)
 })
 
-const ProvisioningContext = React.createContext({})
-const useProvisioningContext = () => useContext(ProvisioningContext)
-
-const Wrapper = ({ steps: stepComponents }) => {
-  const [steps, setSteps] = useState({
-    step: 0,
-    summaries: [],
-    lastKey: {},
-    actions: []
-  })
-  const { exit } = useApp()
-  useInput((_, key) => {
-    if (key.return && !stepComponents[steps.step + 1]) {
-      exit()
-    } else if (steps.step === stepComponents.length) {
-      exit()
-    } else if (key.return) {
-      setSteps({
-        ...steps,
-        lastKey: key
-      })
+const toJson = value => {
+  const obj = {}
+  jsxToJson(value).forEach(([type, props = {}]) => {
+    if (type === '\n') {
+      return
     }
+    obj[type] = obj[type] || []
+    obj[type].push(props)
   })
+  return obj
+}
 
-  useEffect(() => {
-    logs.push('REMOUNTED')
+const allCommands = steps
+  .map(nodes => {
+    const stepAst = asRoot(nodes)
+    let cmds = []
+    visit(stepAst, 'jsx', node => {
+      const jsx = node.value
+      cmds = cmds.concat(toJson(jsx))
+    })
+    return cmds
+  })
+  .reduce((acc, curr) => {
+    const cmdByName = {}
+    curr.map(v => {
+      Object.entries(v).forEach(([key, value]) => {
+        cmdByName[key] = cmdByName[key] || []
+        cmdByName[key] = cmdByName[key].concat(value)
+      })
+    })
+    return [...acc, cmdByName]
   }, [])
 
-  useEffect(() => {
-    if (queue) {
-      queue.resume()
+const RecipeInterpreter = ({ commands }) => {
+  const { exit } = useApp()
+  const [subscriptionResponse] = useSubscription(
+    {
+      query: `
+        subscription {
+          operation {
+            state
+            data
+          }
+        }
+      `
+    },
+    (_prev, now) => {
+      return now
     }
-  }, [steps])
-
-  // TODO: Use queue finished tasks as the array for summaries
-  //       Convert other components to use actions
-  //       Make actions standalone, tested functions
-  //       Providers architecture to pass in actions with types and their executors
-
-  useEffect(() => {
-    queue.on('drain', () => {
-      next(`did stuff`)
-    })
-  }, [steps])
-
-  const next = stepSummary => {
-    const newSteps = {
-      ...steps,
-      lastKey: {},
-      step: steps.step + 1
+  )
+  const [_, createOperation] = useMutation(`
+    mutation ($commands: String!) {
+      createOperation(commands: $commands)
     }
+  `)
 
-    if (stepSummary) {
-      newSteps.summaries = [...steps.summaries, stepSummary]
-    }
-
-    setSteps(newSteps)
+  subscriptionClient.connectionCallback = () => {
+    createOperation({ commands: JSON.stringify(commands) })
   }
 
-  if (queue) {
-    queue.pause()
-  }
+  const { data } = subscriptionResponse
+  const operation =
+    (data &&
+      data.operation &&
+      data.operation.data &&
+      JSON.parse(data.operation.data)) ||
+    commands
 
-  const currentStep = useMemo(() => stepComponents[steps.step], [steps])
+  const state = data && data.operation && data.operation.state
+
+  useInput((_, key) => {
+    if (key.return && state === 'SUCCESS') {
+      exit()
+    }
+  })
 
   return (
-    <ProvisioningContext.Provider
-      value={{
-        ...steps,
-        queue,
-        next
-      }}
-    >
-      <Static>{null && logs.map((l, i) => <Text key={i}>{l}</Text>)}</Static>
-      {steps.summaries.map((stepSummary, i) => {
-        return <Text key={i}>✅ {stepSummary}</Text>
-      })}
+    <>
       <Div>
-        <MDX>{currentStep}</MDX>
+        {process.env.DEBUG ? (
+          <Text>{JSON.stringify(subscriptionResponse)}</Text>
+        ) : null}
       </Div>
-    </ProvisioningContext.Provider>
+      <Div />
+      {operation.map((command, i) => (
+        <Div key={i}>
+          <Step command={command} />
+          <Div />
+        </Div>
+      ))}
+      {state === 'SUCCESS' ? <Text>Your recipe is served!</Text> : null}
+    </>
+  )
+}
+
+const StateIndicator = ({ state }) => {
+  if (state === 'complete') {
+    return <Text> ✅ </Text>
+  } else if (state === 'error') {
+    return <Text> ❌ </Text>
+  } else {
+    return <Spinner />
+  }
+}
+
+const Config = ({ commands }) => {
+  const cmd = commands[0] // Config should only be called once.
+
+  const verb = cmd.state !== 'complete' ? 'Setting' : 'Set'
+  return (
+    <Div>
+      <Box>
+        <StateIndicator state={cmd.state} />
+        <Text> </Text>
+        <Text>
+          {verb} up plan for {cmd.name}
+        </Text>
+      </Box>
+    </Div>
+  )
+}
+
+const NPMPackage = ({ commands }) => {
+  const incomplete = commands.some(c => c.state !== 'complete')
+  const names = commands.map(c => c.name)
+
+  if (incomplete) {
+    return (
+      <Div>
+        <Text>Installing packages</Text>
+        {commands.map(cmd => (
+          <Div key={cmd.name}>
+            <Box>
+              <Text> </Text>
+              <StateIndicator state={cmd.state} />
+              <Text> </Text>
+              <Text>{cmd.name}</Text>
+            </Box>
+          </Div>
+        ))}
+      </Div>
+    )
+  }
+
+  return (
+    <Div>
+      <Box>
+        <StateIndicator state="complete" />
+        <Text> </Text>
+        <Text>Installed {humanizeList(names)}</Text>
+      </Box>
+    </Div>
+  )
+}
+
+const NPMScript = ({ commands }) => {
+  const incomplete = commands.some(c => c.state !== 'complete')
+  const names = commands.map(c => c.name)
+
+  if (incomplete) {
+    return (
+      <Div>
+        <Text>Adding scripts</Text>
+        {commands.map(cmd => (
+          <Div key={cmd.name}>
+            <Box>
+              <Text> </Text>
+              <StateIndicator state={cmd.state} />
+              <Text> </Text>
+              <Text>{cmd.name}</Text>
+            </Box>
+          </Div>
+        ))}
+      </Div>
+    )
+  }
+
+  return (
+    <Div>
+      <Box>
+        <StateIndicator state="complete" />
+        <Text> </Text>
+        <Text>Added scripts for {humanizeList(names)}</Text>
+      </Box>
+    </Div>
+  )
+}
+
+const GatsbyPlugin = ({ commands }) => {
+  const incomplete = commands.some(c => c.state !== 'complete')
+  const names = commands.map(c => c.name)
+
+  if (incomplete) {
+    return (
+      <Div>
+        <Text>Configuring plugins</Text>
+        {commands.map(cmd => (
+          <Div key={cmd.name}>
+            <Box>
+              <Text> </Text>
+              <StateIndicator state={cmd.state} />
+              <Text> </Text>
+              <Text>{cmd.name}</Text>
+            </Box>
+          </Div>
+        ))}
+      </Div>
+    )
+  }
+
+  return (
+    <Div>
+      <Box>
+        <StateIndicator state="complete" />
+        <Text> </Text>
+        <Text>Configured {humanizeList(names)}</Text>
+      </Box>
+    </Div>
+  )
+}
+
+const ShadowFile = ({ commands }) => {
+  const incomplete = commands.some(c => c.state !== 'complete')
+  const paths = commands.map(c => c.path)
+
+  if (incomplete) {
+    return (
+      <Div>
+        <Text>Shadowing files</Text>
+        {commands.map(cmd => (
+          <Div key={cmd.path}>
+            <Box>
+              <Text> </Text>
+              <StateIndicator state={cmd.state} />
+              <Text> </Text>
+              <Text>{cmd.path}</Text>
+            </Box>
+          </Div>
+        ))}
+      </Div>
+    )
+  }
+
+  return (
+    <Div>
+      <Box>
+        <StateIndicator state="complete" />
+        <Text> </Text>
+        <Text>Shadowed {humanizeList(paths)}</Text>
+      </Box>
+    </Div>
+  )
+}
+
+const File = ({ commands }) => {
+  const incomplete = commands.some(c => c.state !== 'complete')
+  const paths = commands.map(c => c.path)
+
+  if (incomplete) {
+    return (
+      <Div>
+        <Text>Writing files</Text>
+        {commands.map(cmd => (
+          <Div key={cmd.path}>
+            <Box>
+              <Text> </Text>
+              <StateIndicator state={cmd.state} />
+              <Text> </Text>
+              <Text>{cmd.path}</Text>
+            </Box>
+          </Div>
+        ))}
+      </Div>
+    )
+  }
+
+  return (
+    <Div>
+      <Box>
+        <StateIndicator state="complete" />
+        <Text> </Text>
+        <Text>Created file {humanizeList(paths)}</Text>
+      </Box>
+    </Div>
+  )
+}
+
+const Step = ({ command }) => {
+  return Object.entries(command).map(([cmdName, cmds], i) => {
+    if (cmdName === 'Config') {
+      return <Config key={i} commands={cmds} />
+    } else if (cmdName === 'NPMPackage') {
+      return <NPMPackage key={i} commands={cmds} />
+    } else if (cmdName === 'NPMScript') {
+      return <NPMScript key={i} commands={cmds} />
+    } else if (cmdName === 'GatsbyPlugin') {
+      return <GatsbyPlugin key={i} commands={cmds} />
+    } else if (cmdName === 'ShadowFile') {
+      return <ShadowFile key={i} commands={cmds} />
+    } else if (cmdName === 'File') {
+      return <File key={i} commands={cmds} />
+    } else {
+      return <Text key={i}>{cmdName}</Text>
+    }
+  })
+}
+
+const Wrapper = () => {
+  return (
+    <Provider value={client}>
+      <RecipeInterpreter commands={allCommands} />
+    </Provider>
   )
 }
 
 const Recipe = () => {
-  return (
-    <MDXProvider components={components}>
-      <Wrapper steps={stepsAsMDX} />
-    </MDXProvider>
-  )
+  return <Wrapper steps={stepsAsMDX} />
 }
 
 render(<Recipe />)
