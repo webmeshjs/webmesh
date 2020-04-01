@@ -119,6 +119,7 @@ const allCommands = steps
   }, [])
 
 const RecipeInterpreter = ({ commands }) => {
+  const [lastKeyPress, setLastKeyPress] = useState(``)
   const { exit } = useApp()
   const [subscriptionResponse] = useSubscription(
     {
@@ -156,7 +157,9 @@ const RecipeInterpreter = ({ commands }) => {
   const state = data && data.operation && data.operation.state
 
   useInput((_, key) => {
+    setLastKeyPress(key)
     if (key.return && state === 'SUCCESS') {
+      subscriptionClient.close()
       exit()
     }
   })
@@ -168,14 +171,24 @@ const RecipeInterpreter = ({ commands }) => {
           <Text>{JSON.stringify(subscriptionResponse)}</Text>
         ) : null}
       </Div>
-      <Div />
+      <Div>
+        {process.env.DEBUG ? (
+          <Text>Last Key Press: {JSON.stringify(lastKeyPress, null, 4)}</Text>
+        ) : null}
+      </Div>
+      <Div>{process.env.DEBUG ? <Text>STATE: {state}</Text> : null}</Div>
       {operation.map((command, i) => (
         <Div key={i}>
           <Step command={command} />
           <Div />
         </Div>
       ))}
-      {state === 'SUCCESS' ? <Text>Your recipe is served!</Text> : null}
+      {state === 'SUCCESS' ? (
+        <Div>
+          <Text> </Text>
+          <Text>Your recipe is served! Press enter to exit.</Text>
+        </Div>
+      ) : null}
     </>
   )
 }

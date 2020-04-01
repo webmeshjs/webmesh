@@ -22,8 +22,7 @@ const gatsbyShadowFileResource = require('./providers/gatsby/shadow-file')
 const npmPackageResource = require('./providers/npm/package')
 const npmPackageScriptResource = require('./providers/npm/script')
 
-// TODO: Remove this hardcodez
-const SITE_ROOT = '/Users/johno/c/recipes' || process.cwd()
+const SITE_ROOT = process.cwd()
 
 const read = promisify(fs.readFile)
 
@@ -249,6 +248,8 @@ const schema = new GraphQLSchema({
 
 const app = express()
 const server = createServer(app)
+
+console.log('listening on localhost:4000')
 
 app.use(
   '/graphql',
