@@ -30,7 +30,7 @@
     "lodash.flatten": "^4.4.0",
     "lodash.groupby": "^4.6.0",
     "mkdirp": "^1.0.3",
-    "node-fetch": "^2.6.0",
+    "node-fetch": "^3.1.1",
     "react": "16.13.1",
     "read-package-tree": "^5.3.1",
     "remark-stringify": "^7.0.4",
