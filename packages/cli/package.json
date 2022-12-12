@@ -18,7 +18,7 @@
     "@webmesh/gatsby": "0.0.1",
     "better-queue": "^3.8.10",
     "execa": "^4.0.0",
-    "express": "^4.17.1",
+    "express": "^4.17.3",
     "express-graphql": "^0.9.0",
     "gatsby-plugin-theme-ui": "^0.3.0",
     "graphql": "^14.6.0",
